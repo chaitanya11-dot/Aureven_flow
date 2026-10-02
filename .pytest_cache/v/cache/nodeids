@@ -1,0 +1,9 @@
+[
+  "backend/tests/test_api.py::test_analyze_authorized_sample",
+  "backend/tests/test_api.py::test_analyze_invalid_url",
+  "backend/tests/test_api.py::test_analyze_unauthorized_source",
+  "backend/tests/test_api.py::test_filename_sanitization",
+  "backend/tests/test_api.py::test_health",
+  "backend/tests/test_api.py::test_source_detection",
+  "backend/tests/test_api.py::test_ssrf_protection"
+]
