@@ -88,7 +88,7 @@ export async function analyzeMediaUrl(rawUrl: string): Promise<MediaMetadata> {
   // 1. Attempt backend API first for full-fidelity extraction
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const res = await fetch('/api/analyze', {
       method: 'POST',

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { AlertCircle, RotateCcw, ArrowLeft, Loader2, DownloadCloud, Sparkles } from 'lucide-react';
+import { AlertCircle, RotateCcw, ArrowLeft, DownloadCloud, Sparkles } from 'lucide-react';
 import { MediaFormat, MediaMetadata } from '../types/media';
 import { downloadMediaFile, saveBlobToFile } from '../services/mediaService';
 
@@ -22,6 +22,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Connecting to media source & preparing stream...');
   const hasTriggeredRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const qualityLabel = format.resolution || format.bitrate || 'HD';
 
@@ -37,9 +38,9 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   useEffect(() => {
     if (elapsedSeconds > 3 && elapsedSeconds <= 8) {
       setStatusMessage('Extracting video and audio streams...');
-    } else if (elapsedSeconds > 8 && elapsedSeconds <= 18) {
+    } else if (elapsedSeconds > 8 && elapsedSeconds <= 20) {
       setStatusMessage('Merging and packaging high-quality stream...');
-    } else if (elapsedSeconds > 18) {
+    } else if (elapsedSeconds > 20) {
       setStatusMessage('Finalizing download and transferring to browser...');
     }
   }, [elapsedSeconds]);
@@ -49,6 +50,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     hasTriggeredRef.current = true;
 
     const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     async function executeDownload() {
       try {
@@ -66,18 +68,31 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
         // Transition to complete
         onComplete(result.actualSize || format.size || 'HD Stream');
       } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+        if (err?.name === 'AbortError' || controller.signal.aborted) {
+          return;
+        }
         console.error('Download execution error:', err);
         setError(err?.message || 'Download could not be completed. Please try again.');
       }
     }
 
     executeDownload();
-
-    return () => {
-      controller.abort();
-    };
+    // Do not abort on simple component re-render / StrictMode remounts
   }, [media.url, format.extension, qualityLabel, media.title, format.size, onComplete]);
+
+  const handleUserCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    onReset();
+  };
+
+  const handleUserBack = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    onBackToResult();
+  };
 
   const formatElapsed = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -104,7 +119,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
         <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
           <button
             type="button"
-            onClick={onBackToResult}
+            onClick={handleUserBack}
             className="px-4 py-2.5 text-xs font-medium text-neutral-200 bg-[#141418] hover:bg-[#1E1E24] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -113,7 +128,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
 
           <button
             type="button"
-            onClick={onReset}
+            onClick={handleUserCancel}
             className="px-4 py-2.5 text-xs font-medium text-neutral-400 hover:text-white bg-transparent hover:bg-[#121215] rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -128,11 +143,11 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     <div className="w-full max-w-md mx-auto px-4 py-12 text-center space-y-6 animate-in fade-in duration-200">
       {/* Animated Downloading Status Header */}
       <div className="space-y-2.5">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-1 relative">
-          <DownloadCloud className="w-7 h-7 text-emerald-400 animate-pulse" />
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-1 relative">
+          <DownloadCloud className="w-7 h-7 text-cyan-400 animate-pulse" />
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
           </span>
         </div>
         <h2 className="text-xl font-medium text-[#F5F5F5] tracking-tight">
@@ -146,11 +161,11 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
       {/* Background Download Notice Card with Live Status */}
       <div className="bg-[#121216] border border-[#222228] rounded-2xl p-5 text-left space-y-3.5 shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
+          <div className="flex items-center gap-2 text-xs font-medium text-cyan-400">
             <Sparkles className="w-4 h-4 shrink-0" />
             <span>Active Processing</span>
           </div>
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
             {formatElapsed(elapsedSeconds)} elapsed
           </span>
         </div>
@@ -161,7 +176,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
 
         <div className="pt-2 border-t border-neutral-800/60 flex items-center justify-between text-[11px] text-neutral-400">
           <span>Format: <strong className="text-neutral-200">{qualityLabel} · {format.extension.toUpperCase()}</strong></span>
-          <span>Target Size: <strong className="text-emerald-400">{format.size}</strong></span>
+          <span>Target Size: <strong className="text-cyan-400">{format.size}</strong></span>
         </div>
       </div>
 
@@ -169,7 +184,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
       <div className="flex gap-2 pt-2">
         <button
           type="button"
-          onClick={onBackToResult}
+          onClick={handleUserBack}
           className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -178,7 +193,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
 
         <button
           type="button"
-          onClick={onReset}
+          onClick={handleUserCancel}
           className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -188,5 +203,3 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     </div>
   );
 };
-
-
