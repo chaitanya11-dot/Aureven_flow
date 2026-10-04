@@ -616,7 +616,7 @@ async function resolveAndDownloadFromLoader(
     if (!progressUrl) return false;
 
     let downloadUrl: string | null = null;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 45; i++) {
       await new Promise((r) => setTimeout(r, 1200));
       const pRes = await fetch(progressUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -635,7 +635,7 @@ async function resolveAndDownloadFromLoader(
 
     const dlRes = await fetch(downloadUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(180000),
     });
     if (!dlRes.ok || !dlRes.body) return false;
 
@@ -883,6 +883,10 @@ async function startServer() {
           ytDlpArgs = [
             '--no-warnings',
             '--no-playlist',
+            '--user-agent',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            '--geo-bypass',
+            '--no-check-certificates',
             '--js-runtimes',
             `node:${process.execPath}`,
             '-x',
@@ -917,6 +921,10 @@ async function startServer() {
           ytDlpArgs = [
             '--no-warnings',
             '--no-playlist',
+            '--user-agent',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            '--geo-bypass',
+            '--no-check-certificates',
             '--js-runtimes',
             `node:${process.execPath}`,
             '-f',

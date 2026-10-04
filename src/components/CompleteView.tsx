@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Check, Download, RotateCcw, ShieldCheck, Play, Film, Music, Sparkles } from 'lucide-react';
+import { Check, Download, RotateCcw, ShieldCheck, Play, Film, Music, Loader2, AlertCircle } from 'lucide-react';
 import { MediaFormat, MediaMetadata } from '../types/media';
-import { triggerNativeDownload, extractYouTubeId } from '../services/mediaService';
+import { downloadMediaFile, saveBlobToFile, extractYouTubeId } from '../services/mediaService';
 
 interface CompleteViewProps {
   media: MediaMetadata;
@@ -15,20 +15,31 @@ export const CompleteView: React.FC<CompleteViewProps> = ({
   onDownloadAnother,
 }) => {
   const [showPreview, setShowPreview] = useState(false);
-  const [downloaded, setDownloaded] = useState(true);
+  const [isDownloadingAgain, setIsDownloadingAgain] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const qualityTitle = format.resolution || format.bitrate || '1080p';
   const displaySize = media.actualDownloadedSize || format.size;
   const ytId = extractYouTubeId(media.url);
 
-  const handleDownloadAgain = () => {
-    triggerNativeDownload(
-      media.url,
-      qualityTitle,
-      format.extension,
-      media.title
-    );
-    setDownloaded(true);
+  const handleDownloadAgain = async () => {
+    if (isDownloadingAgain) return;
+    setIsDownloadingAgain(true);
+    setDownloadError(null);
+    try {
+      const result = await downloadMediaFile(
+        media.url,
+        qualityTitle,
+        format.extension,
+        media.title
+      );
+      saveBlobToFile(result.blob, result.filename);
+    } catch (err: any) {
+      console.error('Re-download failed:', err);
+      setDownloadError(err?.message || 'Download failed. Please try again.');
+    } finally {
+      setIsDownloadingAgain(false);
+    }
   };
 
   return (
@@ -141,19 +152,32 @@ export const CompleteView: React.FC<CompleteViewProps> = ({
         </div>
       </div>
 
+      {downloadError && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2 justify-center">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+          <span>{downloadError}</span>
+        </div>
+      )}
+
       {/* Download Action Buttons */}
       <div className="space-y-3 pt-1">
         <button
           type="button"
+          disabled={isDownloadingAgain}
           onClick={handleDownloadAgain}
-          className="w-full py-4 px-5 text-sm font-semibold bg-white text-[#050505] hover:bg-neutral-100 active:scale-[0.99] rounded-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl"
+          className="w-full py-4 px-5 text-sm font-semibold bg-white text-[#050505] hover:bg-neutral-100 active:scale-[0.99] disabled:opacity-75 disabled:cursor-not-allowed rounded-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl"
         >
-          <Download className="w-4 h-4 stroke-[2.4]" />
-          <span>
-            {downloaded
-              ? `Download ${qualityTitle} (${format.extension.toUpperCase()}) Again`
-              : `Download ${qualityTitle} (${format.extension.toUpperCase()})`}
-          </span>
+          {isDownloadingAgain ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-neutral-800" />
+              <span>Downloading {qualityTitle}...</span>
+            </>
+          ) : (
+            <>
+              <Download className="w-4 h-4 stroke-[2.4]" />
+              <span>Download {qualityTitle} ({format.extension.toUpperCase()}) Again</span>
+            </>
+          )}
         </button>
 
         <button

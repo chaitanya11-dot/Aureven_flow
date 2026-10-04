@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { AlertCircle, RotateCcw, ArrowLeft, Loader2, DownloadCloud, Sparkles, CheckCircle2, Play } from 'lucide-react';
+import { AlertCircle, RotateCcw, ArrowLeft, Loader2, DownloadCloud, Sparkles } from 'lucide-react';
 import { MediaFormat, MediaMetadata } from '../types/media';
-import { triggerNativeDownload } from '../services/mediaService';
+import { downloadMediaFile, saveBlobToFile } from '../services/mediaService';
 
 interface ProcessingViewProps {
   media: MediaMetadata;
@@ -19,8 +19,8 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   onReset,
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isDispatched, setIsDispatched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState('Connecting to media source & preparing stream...');
   const hasTriggeredRef = useRef(false);
 
   const qualityLabel = format.resolution || format.bitrate || 'HD';
@@ -33,19 +33,51 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Update dynamic status messages as time progresses
+  useEffect(() => {
+    if (elapsedSeconds > 3 && elapsedSeconds <= 8) {
+      setStatusMessage('Extracting video and audio streams...');
+    } else if (elapsedSeconds > 8 && elapsedSeconds <= 18) {
+      setStatusMessage('Merging and packaging high-quality stream...');
+    } else if (elapsedSeconds > 18) {
+      setStatusMessage('Finalizing download and transferring to browser...');
+    }
+  }, [elapsedSeconds]);
+
   useEffect(() => {
     if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
 
-    try {
-      // 1. Trigger native browser background download stream exactly once
-      triggerNativeDownload(media.url, qualityLabel, format.extension, media.title);
-      setIsDispatched(true);
-    } catch (err: any) {
-      console.error('Download trigger error:', err);
-      setError(err?.message || 'Could not initiate browser download.');
+    const controller = new AbortController();
+
+    async function executeDownload() {
+      try {
+        const result = await downloadMediaFile(
+          media.url,
+          qualityLabel,
+          format.extension,
+          media.title,
+          controller.signal
+        );
+
+        // Save real binary file to user's disk
+        saveBlobToFile(result.blob, result.filename);
+
+        // Transition to complete
+        onComplete(result.actualSize || format.size || 'HD Stream');
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        console.error('Download execution error:', err);
+        setError(err?.message || 'Download could not be completed. Please try again.');
+      }
     }
-  }, [media.url, format.extension, qualityLabel, media.title]);
+
+    executeDownload();
+
+    return () => {
+      controller.abort();
+    };
+  }, [media.url, format.extension, qualityLabel, media.title, format.size, onComplete]);
 
   const formatElapsed = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -116,7 +148,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
             <Sparkles className="w-4 h-4 shrink-0" />
-            <span>Background Download Active</span>
+            <span>Active Processing</span>
           </div>
           <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
             {formatElapsed(elapsedSeconds)} elapsed
@@ -124,50 +156,37 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
         </div>
 
         <p className="text-xs text-neutral-300 leading-relaxed">
-          Your media is downloading in the background directly into your browser&apos;s download manager.
-          <strong className="text-white block mt-1">
-            You can safely close this tab or keep it open while it finishes.
-          </strong>
+          {statusMessage}
         </p>
 
         <div className="pt-2 border-t border-neutral-800/60 flex items-center justify-between text-[11px] text-neutral-400">
           <span>Format: <strong className="text-neutral-200">{qualityLabel} · {format.extension.toUpperCase()}</strong></span>
-          <span>Estimated: <strong className="text-emerald-400">{format.size}</strong></span>
+          <span>Target Size: <strong className="text-emerald-400">{format.size}</strong></span>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-2.5 pt-2">
+      {/* Navigation Options */}
+      <div className="flex gap-2 pt-2">
         <button
           type="button"
-          onClick={() => onComplete(format.size || 'HD Stream')}
-          className="w-full py-3.5 px-4 text-xs font-semibold bg-white text-[#050505] hover:bg-neutral-100 active:scale-[0.99] rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+          onClick={onBackToResult}
+          className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>View Media Details & Player</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Other Qualities</span>
         </button>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onBackToResult}
-            className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Other Qualities</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onReset}
-            className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>New Download</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="flex-1 py-2.5 px-3 text-xs font-medium text-neutral-300 bg-[#121216] hover:bg-[#1C1C22] border border-neutral-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Cancel</span>
+        </button>
       </div>
     </div>
   );
 };
+
 
