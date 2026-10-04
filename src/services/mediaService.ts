@@ -169,6 +169,26 @@ export async function analyzeMediaUrl(rawUrl: string): Promise<MediaMetadata> {
       thumbnail,
       formats: [
         {
+          id: `yt-${ytId}-2160p`,
+          type: 'video',
+          resolution: '2160p (4K UHD)',
+          height: 2160,
+          extension: 'mp4',
+          size: '~380 MB',
+          label: '2160p (4K UHD) · MP4 · ~380 MB',
+          isEstimated: true,
+        },
+        {
+          id: `yt-${ytId}-1440p`,
+          type: 'video',
+          resolution: '1440p (2K QHD)',
+          height: 1440,
+          extension: 'mp4',
+          size: '~120 MB',
+          label: '1440p (2K QHD) · MP4 · ~120 MB',
+          isEstimated: true,
+        },
+        {
           id: `yt-${ytId}-1080p`,
           type: 'video',
           resolution: '1080p Full HD',

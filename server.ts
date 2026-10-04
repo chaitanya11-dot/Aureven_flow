@@ -255,6 +255,10 @@ async function analyzeUrlWithYtDlp(url: string): Promise<AnalyzedMedia> {
     '--skip-download',
     '--no-warnings',
     '--no-playlist',
+    '--user-agent',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    '--geo-bypass',
+    '--no-check-certificates',
     '--js-runtimes',
     `node:${process.execPath}`,
     url,
@@ -430,6 +434,28 @@ async function analyzeWithOembedFallback(
       duration: 210,
       duration_label: '3:30',
       formats: [
+        {
+          id: `yt-2160p`,
+          type: 'video',
+          quality: '2160p (4K UHD)',
+          height: 2160,
+          extension: 'mp4',
+          estimatedSize: 380000000,
+          size_label: '~380 MB',
+          hasVideo: true,
+          hasAudio: true,
+        },
+        {
+          id: `yt-1440p`,
+          type: 'video',
+          quality: '1440p (2K QHD)',
+          height: 1440,
+          extension: 'mp4',
+          estimatedSize: 120000000,
+          size_label: '~120 MB',
+          hasVideo: true,
+          hasAudio: true,
+        },
         {
           id: `yt-1080p`,
           type: 'video',
@@ -938,6 +964,8 @@ async function startServer() {
       if (!downloadSuccess && (rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be'))) {
         let loaderFormat = '720';
         if (isAudio) loaderFormat = 'mp3';
+        else if (cleanQuality.includes('2160') || cleanQuality.includes('4k')) loaderFormat = '4k';
+        else if (cleanQuality.includes('1440') || cleanQuality.includes('2k')) loaderFormat = '1440';
         else if (cleanQuality.includes('1080')) loaderFormat = '1080';
         else if (cleanQuality.includes('480')) loaderFormat = '480';
         else if (cleanQuality.includes('360')) loaderFormat = '360';
