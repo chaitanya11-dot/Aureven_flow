@@ -781,18 +781,24 @@ async function startServer() {
 
   // Handler for media download & streaming (handles both POST and GET)
   const handleMediaDownload = async (req: Request, res: Response) => {
+    const jobId = `AF-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+
     if (isRateLimited(clientIp, 'download')) {
+      console.warn(`[RATE_LIMITED] job=${jobId} ip=${clientIp}`);
       return res.status(429).json({
         success: false,
         error: { code: 'RATE_LIMITED', message: 'Too many download requests. Please wait a moment.' },
+        jobId,
       });
     }
 
     if (activeConcurrentDownloads >= MAX_CONCURRENT_DOWNLOADS) {
+      console.warn(`[SERVER_BUSY] job=${jobId} active=${activeConcurrentDownloads}`);
       return res.status(429).json({
         success: false,
         error: { code: 'SERVER_BUSY', message: 'Server is currently processing other downloads. Please try again in a few seconds.' },
+        jobId,
       });
     }
 
@@ -801,24 +807,22 @@ async function startServer() {
     const requestedFormat = (req.body?.format || req.query?.format || req.query?.ext || 'mp4') as string;
     const rawTitle = (req.body?.title || req.query?.title || req.query?.filename || 'video') as string;
 
-    console.log(`[DOWNLOAD] Request received: "${rawTitle}" | Quality: ${requestedQuality} | Format: ${requestedFormat}`);
+    const isAudio = requestedFormat.toLowerCase() === 'mp3' || requestedQuality.toLowerCase().includes('mp3');
+    const ext = isAudio ? 'mp3' : 'mp4';
+    const cleanQuality = requestedQuality.toLowerCase().replace(/[^\w]/g, '');
+
+    console.log(`[DOWNLOAD_START] job=${jobId} format=${requestedQuality} type=${isAudio ? 'audio' : 'video'} title="${rawTitle}"`);
 
     if (!rawUrl || !rawUrl.trim()) {
       return res.status(400).json({
         success: false,
         error: { code: 'INVALID_URL', message: 'A valid URL is required for download.' },
+        jobId,
       });
     }
 
-    console.log(`[DOWNLOAD] URL validated: ${rawUrl}`);
-
-    const isAudio = requestedFormat.toLowerCase() === 'mp3' || requestedQuality.toLowerCase().includes('mp3');
-    const ext = isAudio ? 'mp3' : 'mp4';
-    const cleanQuality = requestedQuality.toLowerCase().replace(/[^\w]/g, '');
-
     activeConcurrentDownloads++;
 
-    const jobId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const tempPath = path.join(TEMP_DIR, `${jobId}.${ext}`);
     const outTemplate = path.join(TEMP_DIR, `${jobId}.%(ext)s`);
 
@@ -830,9 +834,9 @@ async function startServer() {
       try {
         if (fs.existsSync(tempPath)) {
           fs.unlinkSync(tempPath);
-          console.log(`[DOWNLOAD] Temporary file cleaned: ${tempPath}`);
+          console.log(`[CLEANUP_COMPLETE] job=${jobId} file=${tempPath}`);
         }
-        // Clean any stray files with jobId
+        // Clean any stray partial files with jobId
         const files = fs.readdirSync(TEMP_DIR);
         for (const f of files) {
           if (f.startsWith(jobId)) {
@@ -875,11 +879,10 @@ async function startServer() {
       // 2. yt-dlp extraction with FFmpeg
       if (!downloadSuccess) {
         const ytDlpPath = findYtDlp();
-        console.log(`[DOWNLOAD] yt-dlp started using binary: ${ytDlpPath}`);
+        console.log(`[YT_DLP_START] job=${jobId} binary=${ytDlpPath}`);
 
         let ytDlpArgs: string[] = [];
         if (isAudio) {
-          console.log(`[DOWNLOAD] Extracting audio stream as MP3 (320k)`);
           ytDlpArgs = [
             '--no-warnings',
             '--no-playlist',
@@ -901,7 +904,6 @@ async function startServer() {
             rawUrl,
           ];
         } else {
-          // Determine height constraint
           let targetHeight = 1080;
           if (cleanQuality.includes('2160') || cleanQuality.includes('4k')) targetHeight = 2160;
           else if (cleanQuality.includes('1440') || cleanQuality.includes('2k')) targetHeight = 1440;
@@ -912,11 +914,9 @@ async function startServer() {
           else if (cleanQuality.includes('240')) targetHeight = 240;
           else if (cleanQuality.includes('144')) targetHeight = 144;
 
-          // Merge video + audio using FFmpeg with MP4 compatibility preference
           const formatSelector = `bestvideo[height<=${targetHeight}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}][ext=mp4]/best[height<=${targetHeight}]/best`;
 
-          console.log(`[DOWNLOAD] Requested height: ${targetHeight} | Format selector: ${formatSelector}`);
-          console.log(`[DOWNLOAD] FFmpeg merge with binary: ${ffmpegPath}`);
+          console.log(`[FFMPEG_START] job=${jobId} requestedHeight=${targetHeight} binary=${ffmpegPath}`);
 
           ytDlpArgs = [
             '--no-warnings',
@@ -950,7 +950,6 @@ async function startServer() {
 
         try {
           await execFileAsync(ytDlpPath, ytDlpArgs, { timeout: DOWNLOAD_TIMEOUT_MS });
-          // Check if tempPath exists, or if output file exists under a different extension and rename
           if (fs.existsSync(tempPath) && fs.statSync(tempPath).size >= 100 * 1024) {
             downloadSuccess = true;
           } else {
@@ -968,10 +967,12 @@ async function startServer() {
           }
 
           if (downloadSuccess) {
-            console.log(`[DOWNLOAD] yt-dlp completed successfully. File size: ${fs.statSync(tempPath).size} bytes`);
+            const stat = fs.statSync(tempPath);
+            console.log(`[YT_DLP_COMPLETE] job=${jobId} size=${stat.size}`);
+            console.log(`[FFMPEG_COMPLETE] job=${jobId} size=${stat.size}`);
           }
         } catch (ytErr: any) {
-          console.warn('yt-dlp primary download attempt failed, attempting fallback resolver:', ytErr?.message);
+          console.warn(`[YT_DLP_WARN] job=${jobId} fallback needed:`, ytErr?.message);
         }
       }
 
@@ -988,14 +989,13 @@ async function startServer() {
         const loaderOk = await resolveAndDownloadFromLoader(rawUrl, loaderFormat, tempPath);
         if (loaderOk && fs.existsSync(tempPath) && fs.statSync(tempPath).size >= 100 * 1024) {
           downloadSuccess = true;
-          console.log(`[DOWNLOAD] Fallback loader completed. File size: ${fs.statSync(tempPath).size} bytes`);
+          console.log(`[LOADER_COMPLETE] job=${jobId} size=${fs.statSync(tempPath).size}`);
         }
       }
 
       // =======================================================
       // REAL MEDIA VALIDATION & 10 KB PROTECTION (CRITICAL)
       // =======================================================
-      // 1. File existence
       if (!downloadSuccess || !fs.existsSync(tempPath)) {
         cleanup();
         return res.status(422).json({
@@ -1004,10 +1004,10 @@ async function startServer() {
             code: 'DOWNLOAD_FAILED',
             message: 'Download failed: The media processing pipeline could not produce the output file.',
           },
+          jobId,
         });
       }
 
-      // 2. Size check: 10 KB protection (minimum 100 KB)
       const stat = fs.statSync(tempPath);
       if (stat.size < 100 * 1024) {
         cleanup();
@@ -1017,11 +1017,11 @@ async function startServer() {
             code: 'INCOMPLETE_MEDIA',
             message: 'Download failed: The server returned an invalid or incomplete media file (< 100 KB).',
           },
+          jobId,
         });
       }
 
-      // 3. Stream validation with ffprobe
-      console.log(`[DOWNLOAD] ffprobe validation started on ${tempPath}`);
+      console.log(`[PROBE_START] job=${jobId}`);
       const probe = await probeMedia(tempPath);
       if (!probe.valid) {
         cleanup();
@@ -1031,6 +1031,7 @@ async function startServer() {
             code: 'INVALID_STREAM',
             message: 'Download failed: The media file could not be parsed by FFmpeg.',
           },
+          jobId,
         });
       }
 
@@ -1042,46 +1043,82 @@ async function startServer() {
             code: 'NO_VIDEO_STREAM',
             message: 'Download failed: The generated MP4 does not contain a valid video stream.',
           },
+          jobId,
         });
       }
 
-      console.log(`[DOWNLOAD] ffprobe validation passed: Video=${probe.hasVideo}, Audio=${probe.hasAudio}, Height=${probe.height || 'N/A'}, Duration=${probe.duration || 'N/A'}s`);
+      console.log(`[PROBE_COMPLETE] job=${jobId} duration=${probe.duration || 'N/A'}s resolution=${probe.height ? probe.height + 'p' : 'N/A'}`);
 
       // =======================================================
-      // STREAMING TO USER
+      // STREAMING TO USER (WITH RANGE SUPPORT & SAFE CLEANUP)
       // =======================================================
       const safeFilename = sanitizeSafeFilename(rawTitle, cleanQuality, ext);
       const mimeType = isAudio ? 'audio/mpeg' : 'video/mp4';
 
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', stat.size.toString());
+      res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
       res.setHeader('X-Actual-File-Size', stat.size.toString());
+      res.setHeader('X-Job-ID', jobId);
       if (probe.height) {
         res.setHeader('X-Actual-Resolution', `${probe.height}p`);
       }
 
-      console.log(`[DOWNLOAD] Sending file (${stat.size} bytes) with filename: ${safeFilename}`);
+      const rangeHeader = req.headers.range;
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
 
-      const fileStream = fs.createReadStream(tempPath);
-      fileStream.pipe(res);
+        if (start >= stat.size || end >= stat.size || start > end) {
+          res.status(416).setHeader('Content-Range', `bytes */${stat.size}`);
+          cleanup();
+          return res.end();
+        }
 
-      res.on('finish', () => {
-        console.log('[DOWNLOAD] Response completed successfully.');
-        cleanup();
-      });
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${stat.size}`);
+        res.setHeader('Content-Length', chunkSize.toString());
 
-      res.on('close', () => {
-        cleanup();
-      });
+        console.log(`[STREAM_START] job=${jobId} range=${start}-${end}/${stat.size} filename="${safeFilename}"`);
 
-      fileStream.on('error', (err) => {
-        console.error('File stream error:', err);
-        cleanup();
-      });
+        const fileStream = fs.createReadStream(tempPath, { start, end });
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+          console.error(`[STREAM_ERROR] job=${jobId}`, err);
+          fileStream.destroy();
+          cleanup();
+        });
+
+        res.on('finish', () => {
+          console.log(`[STREAM_FINISH] job=${jobId}`);
+          setTimeout(cleanup, 15000);
+        });
+      } else {
+        res.status(200);
+        res.setHeader('Content-Length', stat.size.toString());
+
+        console.log(`[STREAM_START] job=${jobId} size=${stat.size} filename="${safeFilename}"`);
+
+        const fileStream = fs.createReadStream(tempPath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+          console.error(`[STREAM_ERROR] job=${jobId}`, err);
+          fileStream.destroy();
+          cleanup();
+        });
+
+        res.on('finish', () => {
+          console.log(`[STREAM_FINISH] job=${jobId}`);
+          setTimeout(cleanup, 15000);
+        });
+      }
     } catch (err: any) {
       cleanup();
-      console.error('Download error:', err);
+      console.error(`[DOWNLOAD_ERROR] job=${jobId}`, err);
       if (!res.headersSent) {
         res.status(500).json({
           success: false,
@@ -1089,11 +1126,11 @@ async function startServer() {
             code: 'PROCESSING_ERROR',
             message: err?.message || 'Media processing failed. Please try again.',
           },
+          jobId,
         });
       }
     }
   };
-
   // Register download endpoints
   app.post('/api/download', handleMediaDownload);
   app.get('/api/download', handleMediaDownload);
