@@ -1,4 +1,4 @@
-import { MediaMetadata, PlatformType, DownloadHistoryItem, MediaFormat } from '../types/media';
+import { MediaMetadata, PlatformType, MediaFormat } from '../types/media';
 
 export const SAMPLE_LINKS = [
   {
@@ -385,46 +385,6 @@ export async function analyzeMediaUrl(rawUrl: string): Promise<MediaMetadata> {
       },
     ],
   };
-}
-
-const STORAGE_KEY = 'aureven_flow_history_v1';
-
-export function getHistory(): DownloadHistoryItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-export function saveToHistory(item: Omit<DownloadHistoryItem, 'id' | 'downloadedAt'>): DownloadHistoryItem {
-  const history = getHistory();
-  const newItem: DownloadHistoryItem = {
-    ...item,
-    id: 'hist-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-    downloadedAt: Date.now(),
-  };
-
-  const updated = [
-    newItem,
-    ...history.filter((h) => h.title !== item.title || h.formatLabel !== item.formatLabel),
-  ].slice(0, 30);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch {
-    // Ignore storage quota errors
-  }
-  return newItem;
-}
-
-export function clearHistory(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Ignore
-  }
 }
 
 export interface DownloadResult {

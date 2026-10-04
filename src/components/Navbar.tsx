@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { History, Info, Sparkles, Menu, X } from 'lucide-react';
+import { Info, Sparkles, Menu, X } from 'lucide-react';
 
 interface NavbarProps {
-  onOpenHistory: () => void;
   onOpenAbout: () => void;
-  historyCount: number;
   onReset: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  onOpenHistory,
   onOpenAbout,
-  historyCount,
   onReset,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,21 +33,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Desktop Navigation */}
       <nav className="hidden sm:flex items-center gap-2">
-        <button
-          onClick={onOpenHistory}
-          className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-[#999999] hover:text-[#F5F5F5] hover:bg-[#121216] border border-transparent hover:border-[#222226] rounded-xl transition-all flex items-center gap-2 cursor-pointer focus:outline-none"
-          title="Download History"
-          aria-label="View Download History"
-        >
-          <History className="w-4 h-4" />
-          <span>History</span>
-          {historyCount > 0 && (
-            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#1A1A1E] border border-neutral-700 text-[10px] text-[#F5F5F5] flex items-center justify-center font-mono">
-              {historyCount}
-            </span>
-          )}
-        </button>
-
         <button
           onClick={onOpenAbout}
           className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-[#999999] hover:text-[#F5F5F5] hover:bg-[#121216] border border-transparent hover:border-[#222226] rounded-xl transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none"
@@ -81,24 +62,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => {
               setMobileMenuOpen(false);
-              onOpenHistory();
-            }}
-            className="w-full min-h-[44px] px-4 py-2.5 text-xs font-medium text-neutral-200 hover:bg-[#18181F] rounded-xl flex items-center justify-between transition-colors"
-          >
-            <div className="flex items-center gap-2.5">
-              <History className="w-4 h-4 text-neutral-400" />
-              <span>Download History</span>
-            </div>
-            {historyCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-[#1A1A1E] border border-neutral-700 text-[10px] text-neutral-300 font-mono">
-                {historyCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
               onOpenAbout();
             }}
             className="w-full min-h-[44px] px-4 py-2.5 text-xs font-medium text-neutral-200 hover:bg-[#18181F] rounded-xl flex items-center gap-2.5 transition-colors"
@@ -111,4 +74,5 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+
 
