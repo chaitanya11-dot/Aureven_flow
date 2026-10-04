@@ -921,6 +921,13 @@ async function startServer() {
           ytDlpArgs = [
             '--no-warnings',
             '--no-playlist',
+            '--concurrent-fragments',
+            '5',
+            '--extractor-args',
+            'youtube:player_client=ios,android,web',
+            '--force-ipv4',
+            '--buffer-size',
+            '16M',
             '--user-agent',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             '--geo-bypass',

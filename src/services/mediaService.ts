@@ -420,7 +420,7 @@ export async function downloadMediaFile(
     if (err?.name === 'AbortError') {
       throw err;
     }
-    throw new Error('Network connection error: Could not reach the download server.');
+    throw new Error('Download processing timed out or stream was interrupted. Try selecting another resolution (e.g. 1080p / 720p) or retrying.');
   }
 
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
