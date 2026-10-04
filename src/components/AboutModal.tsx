@@ -31,9 +31,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
       <div className="bg-[#0C0C0E] border border-[#222228] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-[#1A1A1E] flex items-center justify-between shrink-0">
-          <h2 id="about-modal-title" className="text-base font-semibold text-[#F5F5F5] tracking-tight">
-            About Aureven Flow
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <img src="/icon.png" alt="Aureven Flow Logo" className="w-6 h-6 object-contain" />
+            <h2 id="about-modal-title" className="text-base font-semibold text-[#F5F5F5] tracking-tight">
+              About Aureven Flow
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -46,7 +49,11 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
 
         {/* Body */}
         <div className="p-5 sm:p-6 space-y-5 text-sm overflow-y-auto flex-1">
-          <p className="text-[#999999] leading-relaxed text-xs sm:text-sm">
+          <div className="flex items-center justify-center py-2">
+            <img src="/logo-trimmed.png" alt="Aureven Flow Brand" className="h-16 object-contain" />
+          </div>
+
+          <p className="text-[#999999] leading-relaxed text-xs sm:text-sm text-center">
             Aureven Flow is a clean, fast media utility engineered for effortless saving of authorized videos and audio from YouTube, Instagram, and web streams.
           </p>
 
@@ -70,7 +77,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <div>
                 <h3 className="font-semibold text-[#F5F5F5] text-xs">Private by Design</h3>
                 <p className="text-xs text-[#999999] leading-relaxed">
-                  No accounts, no telemetry, and your history stays in your browser&apos;s local storage.
+                  No accounts, no telemetry, direct streams straight to your browser.
                 </p>
               </div>
             </div>

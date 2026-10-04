@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, Sparkles, Menu, X } from 'lucide-react';
+import { Info, Menu, X } from 'lucide-react';
 
 interface NavbarProps {
   onOpenAbout: () => void;
@@ -23,8 +23,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         className="text-left group cursor-pointer focus:outline-none flex items-center gap-2.5 min-h-[44px]"
         aria-label="Aureven Flow Home"
       >
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-neutral-800 to-neutral-700 border border-neutral-600/40 flex items-center justify-center text-white shadow-sm group-hover:border-neutral-500 transition-colors">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="w-8 h-8 rounded-xl bg-[#0E0E12] border border-[#222228] p-1 flex items-center justify-center shadow-md group-hover:border-cyan-500/50 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.25)] transition-all">
+          <img
+            src="/icon.png"
+            alt="Aureven Flow Logo"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+          />
         </div>
         <span className="text-sm font-semibold tracking-[0.2em] text-[#F5F5F5] uppercase group-hover:text-white transition-colors">
           Aureven Flow
@@ -74,5 +78,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
-
-
