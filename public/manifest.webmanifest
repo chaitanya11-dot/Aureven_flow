@@ -1,0 +1,17 @@
+{
+  "name": "Aureven Flow — Media Downloader",
+  "short_name": "Aureven Flow",
+  "description": "Fast, free, and private media downloader for authorized video and audio streams.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

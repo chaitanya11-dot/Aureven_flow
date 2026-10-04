@@ -1,0 +1,6 @@
+{
+  "name": "Aureven Flow",
+  "description": "Download your media. Simple. Fast. Effortlessly save YouTube and Instagram videos in your preferred quality.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
